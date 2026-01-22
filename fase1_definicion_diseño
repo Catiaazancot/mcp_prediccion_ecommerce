@@ -1,0 +1,176 @@
+# Fase 1 · Definición del caso de uso y diseño de datos   
+**Estado:** Fase cerrada y validada  
+**Objetivo de la fase:** Definir con precisión el caso de uso, las métricas, el modelo de datos y el alcance del MVP antes de generar datos y construir modelos.
+
+---
+
+## 1. Objetivo de la primera parte del proyecto
+
+Construir un sistema de predicción de ventas para un e-commerce, con dos fines principales:
+
+1. **Predicción de ventas futuras** a corto y medio plazo.
+2. **Consumo del resultado en Power BI**, permitiendo análisis explicativos (drivers) y toma de decisiones de negocio.
+
+El proyecto se plantea como un **MVP realista**, sencillo de mantener y ampliable en fases posteriores.
+
+---
+
+## 2. Caso de uso definido
+
+### Variable objetivo
+- **Ventas (€ sin IVA)**.
+- Solo se consideran pedidos **confirmados / pagados**.
+- Moneda única.
+- Métrica agregada a nivel **diario**.
+
+### Qué se va a predecir
+- Ventas diarias totales del e-commerce.
+
+### Horizonte de predicción
+- **90 días**.
+
+### Frecuencia de actualización
+- **Reentrenamiento semanal** del modelo.
+
+---
+
+## 3. Granularidad y enfoque analítico
+
+- **Nivel de datos base (hechos):** una fila por pedido.
+- **Nivel de predicción:** agregación diaria.
+- **Output final:** serie temporal diaria con histórico + forecast 90 días.
+
+Este enfoque equilibra:
+- simplicidad técnica,
+- interpretabilidad,
+- y utilidad real para negocio.
+
+---
+
+## 4. Variables exógenas incluidas (alcance MVP)
+
+Para el MVP se incluyen únicamente variables exógenas simples, pero con impacto real:
+
+### Promociones
+- Variable diaria binaria:  
+  - `hay_promocion` (0 / 1)
+
+### Marketing
+- Variable diaria binaria:  
+  - `campaña_marketing_activa` (0 / 1)
+
+No se incluyen en esta fase:
+- gasto de marketing,
+- descuentos detallados,
+- stock,
+- devoluciones,
+- costes.
+
+---
+
+## 5. Modelo de datos (modelo estrella – MVP)
+
+### Tabla de hechos: `fact_orders`
+Una fila por pedido realizado.
+
+Campos clave:
+- `order_id` (PK)
+- `order_date`
+- `customer_id` (FK)
+- `channel_id` (FK)
+- `order_status`
+- `total_tax_excl`
+- `is_new_customer` (0 / 1)
+- `main_category_id` (FK)
+- `main_product_id` (FK)
+
+> El uso de categoría y producto principal permite análisis por producto/categoría sin necesidad de líneas de pedido.
+
+---
+
+### Tablas de dimensiones
+
+#### `dim_customer`
+- `customer_id` (PK)
+- `first_purchase_date`
+- `customer_type` (nuevo / recurrente)
+- `country`
+
+#### `dim_channel`
+- `channel_id` (PK)
+- `channel_name` (web / móvil)
+
+#### `dim_category`
+- `category_id` (PK)
+- `category_name`
+
+#### `dim_product`
+- `product_id` (PK)
+- `product_name`
+- `category_id` (FK)
+- `base_price`
+
+---
+
+## 6. Diseño de los datos 
+
+Los datos se generarán con las siguientes características:
+
+- Histórico de **2 años**.
+- Volumen:
+  - **50–100 pedidos diarios**.
+  - Menos de **100 productos**.
+- Distribuciones no uniformes:
+  - Existencia de categorías y productos “top” (sin columna explícita).
+  - Patrones temporales (estacionalidad, fines de semana).
+  - Impacto desigual de promociones y campañas.
+- Diferenciación clara entre:
+  - clientes nuevos,
+  - clientes recurrentes.
+
+Esto garantiza que:
+- el modelo predictivo pueda aprender patrones reales,
+- y los dashboards generen conclusiones de negocio con valor.
+
+---
+
+## 7. Formato de los datos de origen
+
+- Simulación de **API REST tipo PrestaShop**.
+- Formato **JSON limpio y plano**, sin anidaciones complejas.
+- Pensado para minimizar tareas de limpieza y acelerar el MVP.
+
+JSON principales:
+- `orders.json`
+- `customers.json`
+- `products.json`
+- `categories.json`
+- `channels.json`
+- `marketing_calendar.json`
+- `promotions_calendar.json`
+
+---
+
+## 8. Output esperado del sistema
+
+1. Tabla con:
+   - ventas históricas diarias,
+   - predicción diaria a 90 días.
+2. Posibilidad de añadir intervalos de confianza en fases posteriores.
+3. Dataset directamente consumible desde Power BI.
+4. Base sólida para evolucionar a:
+   - modelos más avanzados,
+   - prescripción,
+   - agentes analíticos.
+
+---
+
+## 9. Estado final de la fase
+
+- Caso de uso: **definido y validado**.
+- Métrica objetivo: **cerrada**.
+- Modelo de datos: **diseñado**.
+- Alcance MVP: **acotado correctamente**.
+
+**La Fase 1 se considera finalizada.**  
+La siguiente fase será la **generación controlada de datos** siguiendo este diseño.
