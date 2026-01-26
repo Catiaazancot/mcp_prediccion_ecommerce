@@ -7,48 +7,183 @@ los datos nazcan ya con lógica de negocio, el modelo sea directamente explotabl
 2. Arquitectura general
 La arquitectura se compone de dos bloques:
 
-1) Data Lake (RAW)
-Almacenamiento de los datos tal y como vendrían de una API tipo PrestaShop.
+1) Data Lake (RAW). Almacenamiento de los datos tal y como vendrían de una API tipo PrestaShop.
 
-2) Data Warehouse en Fabric
-Warehouse con tablas Delta.
-
+2) Data Warehouse en Fabric. Warehouse con tablas Delta.
 Contiene: el modelo estrella completo de negocio, la dimensión tiempo única, y las tablas de predicción.
 Es el único punto de consumo para: Power BI, MCP , agentes
 
 
 3. Capa RAW (Data Lake)
 Formato: JSON.
-Un fichero por ejecución (run) y por endpoint.
-Enfoque append-only.
+Un fichero por ejecución (run) y por endpoint. (se genera un fichero distinto por cada endpoint).
+Enfoque append-only. (cada ejecución añade nuevos datos)
 Simulación de comportamiento real de API REST.
-
-Cada ejecución queda identificada por:
-run_id
-timestamp de extracción
-origen (prestashop_simulado)
-
-Esto permite:reproducibilidad, auditoría, depuración, sin añadir complejidad técnica.
+Cada ejecución queda identificada por: run_id (identificador único de la carga), timestamp de extracción (fecha y hora de extracción), origen (prestashop_simulado)
 
 
 4. Data Warehouse (Fabric · Delta)
-Contenido del DW
+Contenido del DW:
 1) Modelo estrella (negocio)
-
 2) Tablas analíticas de predicción
 Ventas diarias reales (agregadas).
-Ventas diarias forecast (horizonte 90 días).
-Preparadas para ser visualizadas y consultadas igual que cualquier otra tabla del DW.
+Ventas diarias forecast.
 
 
 5. Dimensión tiempo
 Generada desde el inicio en el DW.
-Única definición temporal para:Power BI,modelos predictivos,MCP.
-Evita duplicidades y ambigüedades posteriores.
+Única definición temporal para:Power BI,modelos predictivos,MCP. Evita duplicidades y ambigüedades posteriores.
 
 
 6. Siguiente paso
 Definir la jerarquía exacta de carpetas y nombres en RAW,
 sobre la que se generarán los datos simulados.
+
+
+DEFINICIÓN JERARQUÍA DE CARPETAS Y NOMBRES EN RAW
+
+Paso 1: Jerarquía RAW (datalake)
+
+**Raíz**
+/raw/prestashop/
+
+
+**Estructura**
+/raw/prestashop/
+  _control/
+    run_id=<run_id>/
+      run_manifest.json
+      run_stats.json
+      run_errors.json
+
+  orders/ingest_date=YYYY-MM-DD/run_id=<run_id>/orders.json
+  customers/ingest_date=YYYY-MM-DD/run_id=<run_id>/customers.json
+  products/ingest_date=YYYY-MM-DD/run_id=<run_id>/products.json
+  categories/ingest_date=YYYY-MM-DD/run_id=<run_id>/categories.json
+  channels/ingest_date=YYYY-MM-DD/run_id=<run_id>/channels.json
+  marketing_calendar/ingest_date=YYYY-MM-DD/run_id=<run_id>/marketing_calendar.json
+  promotions_calendar/ingest_date=YYYY-MM-DD/run_id=<run_id>/promotions_calendar.json
+
+
+**Convenciones**
+
+Metadatos técnicos: solo en _control (los JSON de datos quedan “puros”).
+run_id recomendado: YYYYMMDDTHHMMSSZ_<uuid_short> (ej. 20260126T183000Z_a13f9c).
+_control (mínimo)
+run_manifest.json: puntero a ficheros + counts + timestamps + schema_version.
+run_stats.json: tiempos por endpoint, tamaños, totales (opcional pero útil).
+run_errors.json: errores/reintentos si aplica.
+
+
+Notas de diseño:
+Particiono por ingest_date para facilitar búsquedas/retención.
+run_id cuelga dentro de cada endpoint para auditoría granular.
+_control centraliza el “sobre” del run (muy útil cuando algo falla o para reproducibilidad).
+
+
+
+PASO 2: Esquemas RAW (JSON plano) + versionado
+
+2.1. Regla general de formato (aplica a todos los endpoints)
+
+Cada fichero JSON tendrá esta estructura:
+
+{"schema_version": "1.0",
+  "endpoint": "orders",
+  "extracted_at_utc": "2026-01-26T18:30:00Z",
+  "records": [ ... ]}
+
+schema_version: versión del “contrato” de datos RAW.
+records: lista de objetos planos (sin anidaciones).
+
+
+2.2. Schemas por endpoint (v1.0)
+A) orders.json (base para fact_orders)
+records[]
+order_id (int)
+order_date (string ISO: YYYY-MM-DD)
+customer_id (int)
+channel_id (int)
+order_status (string) — valores: paid | cancelled | pending
+total_tax_excl (number)
+is_new_customer (0/1)
+main_category_id (int)
+main_product_id (int)
+
+orders.json: incluye order_status con paid/cancelled/pending (la métrica usará solo paid en DW).
+
+
+B) customers.json (base para dim_customer)
+
+records[]
+customer_id (int)
+first_purchase_date (string ISO YYYY-MM-DD)
+customer_type (string) — new | returning
+country (string) — ISO2 
+
+C) products.json (base para dim_product)
+
+records[]
+product_id (int)
+product_name (string)
+category_id (int)
+base_price (number)
+
+D) categories.json (base para dim_category)
+
+records[]
+category_id (int)
+category_name (string)
+
+E) channels.json (base para dim_channel)
+
+records[]
+channel_id (int)
+channel_name (string) — web | mobile
+
+F) marketing_calendar.json (variable exógena diaria)
+
+records[]
+date (string ISO YYYY-MM-DD)
+campaña_marketing_activa (0/1)
+
+G) promotions_calendar.json (variable exógena diaria)
+
+records[]
+date (string ISO YYYY-MM-DD)
+hay_promocion (0/1)
+
+
+2.3. Reglas de validación mínima (para que luego no duela)
+order_id, customer_id, product_id, etc.: enteros > 0
+total_tax_excl ≥ 0
+order_date dentro de los 2 años de histórico
+is_new_customer coherente con first_purchase_date (si order_date == first_purchase_date ⇒ 1)
+main_product_id debe existir en products
+main_category_id debe existir en categories (y coherente con el producto principal)
+
+
+2.4. Versionado (schema_version)
+
+Arrancamos con 1.0.
+Si añadimos campos sin romper compatibilidad: 1.1, 1.2.
+Si cambiamos nombres/tipos o semántica: 2.0.
+
+
+Paso 3: diseño del DW en Fabric (Delta) — tablas, campos, claves, y qué lógica aplica para pasar de RAW a DW 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
