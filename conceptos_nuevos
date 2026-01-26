@@ -1,0 +1,18 @@
+Conceptos Nuevos
+
+Capas RAW / Bronze / Silver / Gold o RAW + DW
+Las capas son como cajones donde se guardan los datos, desde lo más bruto hasta lo más listo para usar.
+
+RAW (o Bronze) → datos tal cual vienen de la fuente, sin tocar.
+Silver → datos ya limpiados y ordenados.
+Gold → datos preparados para análisis, Power BI y modelos.
+DW (Data Warehouse) → la base de datos final, bien estructurada.
+
+En la práctica, Fabric ya usa Silver/Gold internamente, aunque no siempre se nombre así.
+
+Delta (formato del archivo): Parquet, control de cambios, cargas incrementales, estándar en Fabric
+
+
+
+
+
