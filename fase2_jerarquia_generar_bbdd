@@ -1,0 +1,54 @@
+1. Objetivo de la fase 2
+
+Diseñar la jerarquía de datos y las estructuras finales sobre las que se generarán los datos simulados, garantizando que:
+los datos nazcan ya con lógica de negocio, el modelo sea directamente explotable en Power BI, y el sistema sea compatible con predicción y MCP desde el inicio.
+
+
+2. Arquitectura general
+La arquitectura se compone de dos bloques:
+
+1) Data Lake (RAW)
+Almacenamiento de los datos tal y como vendrían de una API tipo PrestaShop.
+
+2) Data Warehouse en Fabric
+Warehouse con tablas Delta.
+
+Contiene: el modelo estrella completo de negocio, la dimensión tiempo única, y las tablas de predicción.
+Es el único punto de consumo para: Power BI, MCP , agentes
+
+
+3. Capa RAW (Data Lake)
+Formato: JSON.
+Un fichero por ejecución (run) y por endpoint.
+Enfoque append-only.
+Simulación de comportamiento real de API REST.
+
+Cada ejecución queda identificada por:
+run_id
+timestamp de extracción
+origen (prestashop_simulado)
+
+Esto permite:reproducibilidad, auditoría, depuración, sin añadir complejidad técnica.
+
+
+4. Data Warehouse (Fabric · Delta)
+Contenido del DW
+1) Modelo estrella (negocio)
+
+2) Tablas analíticas de predicción
+Ventas diarias reales (agregadas).
+Ventas diarias forecast (horizonte 90 días).
+Preparadas para ser visualizadas y consultadas igual que cualquier otra tabla del DW.
+
+
+5. Dimensión tiempo
+Generada desde el inicio en el DW.
+Única definición temporal para:Power BI,modelos predictivos,MCP.
+Evita duplicidades y ambigüedades posteriores.
+
+
+6. Siguiente paso
+Definir la jerarquía exacta de carpetas y nombres en RAW,
+sobre la que se generarán los datos simulados.
+
+
