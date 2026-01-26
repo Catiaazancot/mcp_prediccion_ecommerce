@@ -12,7 +12,40 @@ En la práctica, Fabric ya usa Silver/Gold internamente, aunque no siempre se no
 
 Delta (formato del archivo): Parquet, control de cambios, cargas incrementales, estándar en Fabric
 
+-------------------------------------
 
+PASO 1: Jerarquía RAW 
+
+Definimos una estructura clara de carpetas para guardar los datos en bruto, para que todo esté ordenado, sea trazable y fácil de revisar si algo falla.
+RAW = datos tal cual vienen, sin tocar.
+Cada ejecución deja sus ficheros.
+Todo queda guardado, nada se sobrescribe.
+
+Estructura:
+/raw/prestashop/ → carpeta raíz de esta fuente.
+_control/ → solo información técnica de cada ejecución (qué se cargó, cuándo, si hubo errores).
+El resto (orders, customers, etc.) → datos puros, uno por endpoint.
+
+Buen diseño: 
+ingest_date → facilita buscar datos por día y limpiar históricos.
+run_id → permite saber exactamente de qué ejecución viene cada fichero.
+_control centralizado → si algo falla, miras ahí y sabes qué pasó.
+
+--> Cada carga queda perfectamente identificada y separada, tanto a nivel de datos como de control.
+
+
+PASO 2: Esquemas RAW (JSON plano) + versionado
+Define cómo es cada fichero JSON por dentro, para que todos sigan la misma regla.
+
+Regla general
+Todos los ficheros tienen: versión del esquema, qué endpoint es, cuándo se extrajo, los datos en sí
+
+Los datos (records) son: planos, simples, sin estructuras raras
+
+Schemas por endpoint
+Aquí solo se decide: qué campos tiene cada tipo de dato, para qué se usará después (ventas, clientes, productos…)
+
+Versionado: Sirve para poder evolucionar sin romper nada. Empiezas en 1.0, Si añades campos → 1.1, 1.2, Si cambias significados o tipos → 2.0
 
 
 
