@@ -174,3 +174,8 @@ JSON principales:
 
 **La Fase 1 se considera finalizada.**  
 La siguiente fase será la **generación controlada de datos** siguiendo este diseño.
+
+**Notas David**
+Los json se guardaran en un datalake con una jerarquía adecuada.
+Y la bbdd de predicción será una datawarehouse
+(en ppo etl y dw con fabric) 
