@@ -281,9 +281,115 @@ fact_promotions_calendar → dim_date
 pred_* → dim_date
 
 
+Paso 4: Mapeo RAW --> DW
 
+4.2. Mapeo por tabla
+dim_customer
+Origen: customers.json
+Reglas:
+Carga 1:1 (sin deduplicación avanzada).
+customer_id único.
+Mapeo:
+customer_id ← customer_id
+first_purchase_date ← first_purchase_date
+customer_type ← customer_type
+country ← country (ISO2)
 
+dim_category
+Origen: categories.json
+Reglas: carga directa.
+Mapeo:
+category_id ← category_id
+category_name ← category_name
 
+dim_product
+Origen: products.json
+Reglas:
+category_id debe existir en dim_category.
+Mapeo:
+product_id ← product_id
+product_name ← product_name
+category_id ← category_id
+base_price ← base_price
+
+dim_channel
+Origen: channels.json
+Reglas: valores controlados (web, mobile).
+Mapeo:
+channel_id ← channel_id
+channel_name ← channel_name
+
+dim_date
+Origen: generado en DW
+Reglas:
+Rango: histórico completo + 90 días futuros.
+date_id = YYYYMMDD.
+
+fact_orders
+Origen: orders.json
+Todas las FKs deben existir:
+customer_id
+channel_id
+main_product_id
+main_category_id
+order_date debe existir en dim_date.
+Mapeo:
+order_id ← order_i
+order_date_id ← order_date → dim_date.date_id
+customer_id ← customer_id
+channel_id ← channel_id
+main_product_id ← main_product_id
+main_category_id ← main_category_id
+order_status ← order_status
+total_tax_excl ← total_tax_excl
+is_new_customer ← is_new_customer
+
+fact_marketing_calendar
+Origen: marketing_calendar.json
+Reglas: 1 fila por día.
+Mapeo:
+date_id ← date → dim_date.date_id
+campaña_marketing_activa ← campaña_marketing_activa
+
+fact_promotions_calendar
+Origen: promotions_calendar.json
+Reglas: 1 fila por día.
+Mapeo:
+date_id ← date → dim_date.date_id
+hay_promocion ← hay_promocion
+
+4.3. Tablas de predicción (derivadas)
+pred_daily_sales
+Origen: fact_orders + calendarios
+Campos:
+date_id
+date
+total_sales_tax_excl = SUM(total_tax_excl)
+num_orders = COUNT(order_id)
+hay_promocion
+campaña_marketing_activa
+
+pred_sales_forecast
+Origen: modelo predictivo
+Reglas:
+90 días futuros.
+Versionado de modelo obligatorio.
+Campos:
+date_id
+date
+forecast_sales_tax_excl
+model_version
+forecast_generated_at
+
+4.4. Checks de calidad (documentados)
+Integridad
+% de pedidos rechazados por FK inexistente = 0% esperado.
+Días sin calendario = 0.
+Negocio
+total_tax_excl ≥ 0.
+Ventas solo desde paid.
+Cobertura
+Histórico continuo (sin huecos de fechas).
 
 
 
