@@ -392,9 +392,13 @@ Cobertura
 Histórico continuo (sin huecos de fechas).
 
 
+Estado final
+ Paso 1: Jerarquía RAW cerrada
+ Paso 2: Schemas RAW + versionado cerrados
+ Paso 3: Diseño del DW (modelo estrella + predicción) cerrado
+ Paso 4: Contrato RAW → DW cerrado
 
-
-
+Próximo paso: generación de datos
 
 
 
