@@ -154,7 +154,7 @@ date (string ISO YYYY-MM-DD)
 hay_promocion (0/1)
 
 
-2.3. Reglas de validación mínima (para que luego no duela)
+2.3. Reglas de validación mínima 
 order_id, customer_id, product_id, etc.: enteros > 0
 total_tax_excl ≥ 0
 order_date dentro de los 2 años de histórico
@@ -170,10 +170,115 @@ Si añadimos campos sin romper compatibilidad: 1.1, 1.2.
 Si cambiamos nombres/tipos o semántica: 2.0.
 
 
-Paso 3: diseño del DW en Fabric (Delta) — tablas, campos, claves, y qué lógica aplica para pasar de RAW a DW 
+Paso 3: diseño del DW en Fabric 
+
+El DW es el único punto de consumo para: PowerBI, MCP, modelo predictivo
+Se implementa en Fabric, usando tablas Delta
+Entrarán: modelo estrella de negocio, dimensión tiempo y las tablas de predicción
 
 
+3.3. Dimensiones
+dim_date (1 fila por día)
 
+Campos:
+
+date_id (PK, int) → YYYYMMDD
+date (date)
+year
+quarter
+month
+month_name
+week_of_year
+day_of_month
+day_of_week
+day_name
+is_weekend (0/1)
+
+Se genera internamente en el DW. Es la única definición temporal para Power BI y MCP.
+
+dim_customer
+Origen RAW: customers.json
+Campos:
+customer_id (PK)
+first_purchase_date
+customer_type (new / returning)
+country (ISO2)
+
+dim_product
+Origen RAW: products.json
+Campos:
+product_id (PK)
+product_name
+category_id (FK)
+base_price
+
+dim_category
+Origen RAW: categories.json
+Campos:
+category_id (PK)
+category_name
+
+dim_channel
+Origen RAW: channels.json
+Campos:
+channel_id (PK)
+channel_name (web / mobile)
+
+3.4. Tabla de hechos
+fact_orders (1 fila por pedido)
+Campos:
+order_id (PK)
+order_date_id (FK → dim_date.date_id)
+customer_id (FK)
+channel_id (FK)
+main_product_id (FK)
+main_category_id (FK)
+order_status
+total_tax_excl
+is_new_customer (0/1)
+
+3.5. Variables exógenas (tablas auxiliares)
+
+fact_marketing_calendar (1 fila por día)
+Campos:
+date_id (FK → dim_date)
+campaña_marketing_activa (0/1)
+
+fact_promotions_calendar 1 fila por día
+Campos:
+date_id (FK → dim_date)
+hay_promocion (0/1)
+
+
+3.6. Tablas analíticas para predicción
+pred_daily_sales 1 fila por día (histórico)
+Campos:
+date_id
+date
+total_sales_tax_excl
+num_orders
+hay_promocion
+campaña_marketing_activa
+
+Tabla derivada del modelo estrella + calendarios.
+pred_sales_forecast 1 fila por día futuro
+Campos:
+date_id
+date
+forecast_sales_tax_excl
+model_version
+forecast_generated_at
+
+3.7. Relaciones (modelo estrella)
+
+fact_orders → dim_date
+fact_orders → dim_customer
+fact_orders → dim_product
+fact_orders → dim_category
+fact_orders → dim_channel
+fact_marketing_calendar → dim_date
+fact_promotions_calendar → dim_date
+pred_* → dim_date
 
 
 
