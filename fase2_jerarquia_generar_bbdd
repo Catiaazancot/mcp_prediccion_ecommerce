@@ -391,6 +391,12 @@ Estado final
  Paso 4: Contrato RAW → DW cerrado
 
 Próximo paso: generación de datos
+datos generados script por python, carpeta en escritorio
+proximos pasos:
+ - subir la carpeta raw/ al DL
+ - Verificar que la ruta final es: /raw/prestashop/...
+ - Validar que el run_manifest.json está accesible
+ - A partir de ahí, empezar la carga al DW
 
 
 
