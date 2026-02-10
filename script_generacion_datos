@@ -1,0 +1,215 @@
+import os
+import json
+import uuid
+import random
+from datetime import date, datetime, timedelta
+from collections import defaultdict
+
+# -------------------------
+# CONFIGURACIÓN GENERAL
+# -------------------------
+BASE_PATH = "raw/prestashop"
+START_DATE = date.today() - timedelta(days=730)
+END_DATE = date.today() - timedelta(days=1)
+
+NUM_CATEGORIES = 10
+NUM_PRODUCTS = 80
+NUM_CUSTOMERS = 4000
+
+MIN_ORDERS_DAY = 50
+MAX_ORDERS_DAY = 100
+
+PAID_RATIO = 0.88
+CANCELLED_RATIO = 0.08
+
+# -------------------------
+# UTILIDADES
+# -------------------------
+def ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+
+def daterange(start, end):
+    for n in range((end - start).days + 1):
+        yield start + timedelta(n)
+
+def iso(d):
+    return d.isoformat()
+
+# -------------------------
+# RUN
+# -------------------------
+run_id = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ") + "_" + str(uuid.uuid4())[:6]
+ingest_date = iso(date.today())
+
+# -------------------------
+# CATEGORIES
+# -------------------------
+categories = [
+    {"category_id": i+1, "category_name": f"Categoria {i+1}"}
+    for i in range(NUM_CATEGORIES)
+]
+
+# -------------------------
+# PRODUCTS (Zipf-like)
+# -------------------------
+products = []
+product_weights = {}
+
+for i in range(NUM_PRODUCTS):
+    category_id = random.choice(categories)["category_id"]
+    product_id = i + 1
+    products.append({
+        "product_id": product_id,
+        "product_name": f"Producto {product_id}",
+        "category_id": category_id,
+        "base_price": round(random.uniform(10, 300), 2)
+    })
+    product_weights[product_id] = 1 / (i + 1)
+
+# -------------------------
+# CHANNELS
+# -------------------------
+channels = [
+    {"channel_id": 1, "channel_name": "web"},
+    {"channel_id": 2, "channel_name": "mobile"}
+]
+
+# -------------------------
+# CUSTOMERS
+# -------------------------
+customers = []
+customer_first_purchase = {}
+
+for i in range(NUM_CUSTOMERS):
+    first_purchase = START_DATE + timedelta(days=random.randint(0, 500))
+    customers.append({
+        "customer_id": i + 1,
+        "first_purchase_date": iso(first_purchase),
+        "customer_type": "new",
+        "country": random.choice(["ES", "FR", "IT", "DE", "PT"])
+    })
+    customer_first_purchase[i + 1] = first_purchase
+
+# -------------------------
+# CALENDARS
+# -------------------------
+marketing_calendar = []
+promotions_calendar = []
+
+promo_days = set(random.sample(
+    [d for d in daterange(START_DATE, END_DATE)],
+    k=120
+))
+
+marketing_days = set(random.sample(
+    [d for d in daterange(START_DATE, END_DATE)],
+    k=160
+))
+
+for d in daterange(START_DATE, END_DATE):
+    marketing_calendar.append({
+        "date": iso(d),
+        "campaña_marketing_activa": int(d in marketing_days)
+    })
+    promotions_calendar.append({
+        "date": iso(d),
+        "hay_promocion": int(d in promo_days)
+    })
+
+# -------------------------
+# ORDERS
+# -------------------------
+orders = []
+order_id = 1
+
+for d in daterange(START_DATE, END_DATE):
+
+    base_orders = random.randint(MIN_ORDERS_DAY, MAX_ORDERS_DAY)
+
+    if d.weekday() >= 5:  # fin de semana
+        base_orders = int(base_orders * 1.2)
+
+    if d in promo_days:
+        base_orders = int(base_orders * 1.2)
+
+    if d in marketing_days:
+        base_orders = int(base_orders * 1.15)
+
+    for _ in range(base_orders):
+        product = random.choices(
+            products,
+            weights=[product_weights[p["product_id"]] for p in products],
+            k=1
+        )[0]
+
+        customer_id = random.randint(1, NUM_CUSTOMERS)
+        is_new = int(customer_first_purchase[customer_id] == d)
+
+        status_rand = random.random()
+        if status_rand <= PAID_RATIO:
+            status = "paid"
+        elif status_rand <= PAID_RATIO + CANCELLED_RATIO:
+            status = "cancelled"
+        else:
+            status = "pending"
+
+        orders.append({
+            "order_id": order_id,
+            "order_date": iso(d),
+            "customer_id": customer_id,
+            "channel_id": random.choice([1, 2]),
+            "order_status": status,
+            "total_tax_excl": round(product["base_price"] * random.uniform(0.8, 1.2), 2),
+            "is_new_customer": is_new,
+            "main_category_id": product["category_id"],
+            "main_product_id": product["product_id"]
+        })
+        order_id += 1
+
+# -------------------------
+# ESCRITURA RAW
+# -------------------------
+def write_endpoint(endpoint, records):
+    path = f"{BASE_PATH}/{endpoint}/ingest_date={ingest_date}/run_id={run_id}"
+    ensure_dir(path)
+    with open(f"{path}/{endpoint}.json", "w", encoding="utf-8") as f:
+        json.dump({
+            "schema_version": "1.0",
+            "endpoint": endpoint,
+            "extracted_at_utc": datetime.utcnow().isoformat(),
+            "records": records
+        }, f, indent=2, ensure_ascii=False)
+
+write_endpoint("categories", categories)
+write_endpoint("products", products)
+write_endpoint("channels", channels)
+write_endpoint("customers", customers)
+write_endpoint("marketing_calendar", marketing_calendar)
+write_endpoint("promotions_calendar", promotions_calendar)
+write_endpoint("orders", orders)
+
+# -------------------------
+# CONTROL FILES
+# -------------------------
+control_path = f"{BASE_PATH}/_control/run_id={run_id}"
+ensure_dir(control_path)
+
+manifest = {
+    "run_id": run_id,
+    "extract_ts_utc": datetime.utcnow().isoformat(),
+    "source_system": "prestashop_simulado",
+    "record_counts": {
+        "categories": len(categories),
+        "products": len(products),
+        "channels": len(channels),
+        "customers": len(customers),
+        "marketing_calendar": len(marketing_calendar),
+        "promotions_calendar": len(promotions_calendar),
+        "orders": len(orders)
+    }
+}
+
+with open(f"{control_path}/run_manifest.json", "w", encoding="utf-8") as f:
+    json.dump(manifest, f, indent=2, ensure_ascii=False)
+
+print("Generación completada. Run ID:", run_id)
