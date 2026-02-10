@@ -1,0 +1,39 @@
+Mi estructura local:
+raw/prestashop/
+├── _control/
+├── categories/
+├── channels/
+├── customers/
+├── marketing_calendar/
+├── orders/
+├── products/
+└── promotions_calendar/
+
+y dentro de cada endpoint:
+raw/prestashop/
+├── _control/
+├── categories/
+├── channels/
+├── customers/
+├── marketing_calendar/
+├── orders/
+├── products/
+└── promotions_calendar/
+
+Paso 1: Subir los datos al datalake
+
+Herramienta: AzCopy. Autenticacion con Azure:
+.\azcopy.exe login
+INFO: Login succeeded.
+
+Paso 2: Copiar los datos RAW al DataLake
+
+Terminal:
+cd C:\Users\catia\Desktop\prestashop_data
+& "C:\Users\catia\Downloads\azcopy_windows_amd64_10.32.0\azcopy_windows_amd64_10.32.0\azcopy.exe" copy "raw\prestashop" "https://dbitststgdlake.dfs.core.windows.net/raw/prestashop" --recursive.
+
+Estado actual:
+He podido ejecutar AzCopy correctamente y conectar con el Data Lake, pero la subida falla con un 403 AuthorizationPermissionMismatch.
+Todo apunta a que mi usuario no tiene permisos de escritura en el filesystem raw del storage account.
+¿Me puedes dar rol Storage Blob Data Contributor (o Owner) sobre ese storage o sobre el contenedor raw para poder subir los datos?
+
