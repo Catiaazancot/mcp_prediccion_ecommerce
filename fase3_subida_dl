@@ -33,7 +33,15 @@ cd C:\Users\catia\Desktop\prestashop_data
 & "C:\Users\catia\Downloads\azcopy_windows_amd64_10.32.0\azcopy_windows_amd64_10.32.0\azcopy.exe" copy "raw\prestashop" "https://dbitststgdlake.dfs.core.windows.net/raw/prestashop" --recursive.
 
 Estado actual:
-He podido ejecutar AzCopy correctamente y conectar con el Data Lake, pero la subida falla con un 403 AuthorizationPermissionMismatch.
-Todo apunta a que mi usuario no tiene permisos de escritura en el filesystem raw del storage account.
-¿Me puedes dar rol Storage Blob Data Contributor (o Owner) sobre ese storage o sobre el contenedor raw para poder subir los datos?
+RAW estructurado correctamente
+Particionamiento por source/asset
+SQL Express instalado
+SSMS configurado
+Modelo conceptual definido
+
+Mañana seguimos con:
+Crear esquema físico en SQL
+Definir PK / FK
+Crear surrogate keys
+Preparar la carga desde el Data Lake con pandas
 
