@@ -1,0 +1,19 @@
+Paso 1: Acceso y lectura del RAW 
+Ubicación del RAW: C:\Users\catia\Desktop\prestashop_data\raw\source=prestashop
+Estructura del almacenamiento: asset-control/
+                                asset-categories/
+                                asset-channels/
+                                asset-customers/
+                                asset-marketing_calendar/
+                                asset-orders/
+                                asset-products/
+                                asset-promotions_calendar/
+
+Estrategia de lectura. La lectura se realizará desde Python en entorno local utilizando: pandas.read_json()
+
+Paso 2: Configuración de conexión a SQL 
+Motor de base de datos:
+ - Sistema: Microsoft SQL Server Express
+ - Instancia: .\\SQLEXPRESS
+ - Versión detectada: SQL Server 17.x
+ - Autenticación: Windows Authentication
