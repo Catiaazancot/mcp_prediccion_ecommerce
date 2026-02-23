@@ -11,9 +11,190 @@ Estructura del almacenamiento: asset-control/
 
 Estrategia de lectura. La lectura se realizará desde Python en entorno local utilizando: pandas.read_json()
 
+
 Paso 2: Configuración de conexión a SQL 
+
 Motor de base de datos:
  - Sistema: Microsoft SQL Server Express
  - Instancia: .\\SQLEXPRESS
  - Versión detectada: SQL Server 17.x
  - Autenticación: Windows Authentication
+
+
+Base de datos destino
+Nombre: prestashop_dw
+Esquema utilizado: dbo
+Contiene las tablas:
+dim_date
+dim_category
+dim_product
+dim_customer
+dim_channel
+fact_sales
+
+
+Estrategia de carga definida
+Tipo de carga: Full Load
+ - No se implementa lógica incremental en esta fase.
+ - En cada ejecución del ETL:
+ - Se vaciarán las tablas (TRUNCATE)
+ - Se cargarán nuevamente las dimensiones
+ - Posteriormente se cargará la tabla de hechos
+
+Librerías de conexión (Python)
+La conexión se realizará mediante:
+ - sqlalchemy
+ - pyodbc
+ - Driver: ODBC Driver 17 for SQL Server
+ - Autenticación integrada (trusted connection)
+
+from sqlalchemy import create_engine
+server = '.\\SQLEXPRESS'
+database = 'prestashop_dw'
+connection_string = (
+    f"mssql+pyodbc://@{server}/{database}"
+    "?driver=ODBC+Driver+17+for+SQL+Server"
+    "&trusted_connection=yes"
+)
+engine = create_engine(connection_string)
+
+
+Paso 3: Diseño del proceso de carga
+Flujo completo: 
+Leer RAW JSON
+    ↓
+Transformar a DataFrame
+    ↓
+TRUNCATE tablas
+    ↓
+Cargar dim_date
+Cargar dim_category
+Cargar dim_channel
+Cargar dim_customer
+Cargar dim_product
+    ↓
+Leer dimensiones desde SQL
+    ↓
+Merge BK → SK
+    ↓
+Cargar fact_sales
+
+Definiciones funcionales
+Reglas de transformacion
+Fechas
+Se convertirán a tipo datetime en pandas:
+ - order_date
+ - first_purchase_date
+
+Posteriormente:
+ - date_key se generará como YYYYMMDD (int).
+ - En dim_date.full_date se insertará como tipo DATE.
+
+Booleanos
+Los campos:
+ - is_new_customer
+ - campaña_marketing_activa
+ - hay_promocion
+
+Se mantendrán como 0/1 en pandas.
+SQL Server los almacenará como BIT.
+
+Unicidad de la fact
+ - order_id es único globalmente (según generador).
+ - No se requiere control adicional en esta fase (Full Load).
+ - No se implementa restricción UNIQUE por ahora.
+
+Gestión de inconsistencias (mapeo BK → SK)
+ - Se implementará estrategia de dimensión “Unknown”.
+Si durante el merge algún business key no encuentra correspondencia:
+→ Se asignará la surrogate key del registro “Unknown”.
+
+
+Futura tabla de predicciones
+Primera métrica: ventas por producto
+Grano previsto: (date_key, product_key)
+
+Columnas futuras:
+ - date_key
+ - product_key
+ - yhat_sales
+ - model_name
+ - run_id_model
+ - created_at
+
+-------------------------------------------------------------------------------------------------------
+Estructura Jupyter Notebook
+
+Bloque 0 - Imports y configuración
+ - pandas
+ - sqlalchemy
+ - pyodbc
+ - rutas base del RAW
+ - parámetros de conexión SQL
+
+Bloque 1 - Función simple para leer endpoints
+read_endpoint(endpoint_name)
+Que:
+ - Navegue hasta la carpeta del último ingest_date
+ - Tome el último run_id
+ - Devuelva el DataFrame con records
+
+Aquí validamos:
+ - Que leemos bien JSON
+ - Que la estructura es correcta
+
+Bloque 2 - Conexión a SQL
+ - Crear engine
+ - Probar conexión con SELECT 1
+
+Bloque 3 – TRUNCATE tablas
+
+Orden correcto (por FKs):
+fact_sales
+dim_product
+dim_customer
+dim_category
+dim_channel
+dim_date
+
+🔹 Bloque 4 – Carga de dimensiones
+4.1 dim_date
+Merge marketing_calendar + promotions_calendar
+Generar date_key
+Crear columnas derivadas
+Insertar
+
+4.2 dim_category
+Insertar
+Añadir registro Unknown
+
+4.3 dim_channel
+Insertar
+Añadir Unknown
+
+4.4 dim_customer
+Insertar
+Añadir Unknown
+
+4.5 dim_product
+Merge con dim_category para obtener category_key
+Insertar
+Añadir Unknown
+
+Bloque 5 – Carga fact_sales
+
+Leer orders
+Merge con:
+dim_date
+dim_customer
+dim_product
+dim_category
+dim_channel
+Reemplazar NaN por surrogate key de Unknown
+Insertar fact
+
+Bloque 6 – Validaciones finales
+
+Conteo filas por tabla
+Comparar con manifest
+SELECT top 10 fact_sales
