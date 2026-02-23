@@ -198,3 +198,36 @@ Bloque 6 – Validaciones finales
 Conteo filas por tabla
 Comparar con manifest
 SELECT top 10 fact_sales
+
+FASE 5 COMPLETADA - RESUMEN
+Objetivo
+Construir el proceso de carga desde el Data Lake (RAW JSON) hacia el Data Warehouse en SQL Server, respetando el modelo estrella diseñado.
+
+Alcance
+Lectura de endpoints desde entorno local.
+Transformación de datos con pandas.
+Generación de date_key (YYYYMMDD).
+Conversión de fechas y normalización de tipos.
+Carga ordenada de dimensiones.
+Resolución de business keys → surrogate keys.
+Construcción y carga de fact_sales.
+Validación en SQL Server.
+
+Orden de carga
+dim_date
+dim_category
+dim_channel
+dim_customer
+dim_product
+fact_sales
+
+Resultado
+730 registros en dim_date
+10 categorías
+2 canales
+4.000 clientes
+80 productos
+~61.000 registros en fact_sales
+
+Integridad referencial validada.
+Totales coherentes entre pandas y SQL.
